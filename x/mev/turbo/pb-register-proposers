@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+for d in ${HOME}/.simapp?
+do
+	MONIKER=$(basename $d | sed -e 's/\.simapp/node/')-moniker
+	simd --home="$d" tx builder register-proposer \
+		--yes \
+		--keyring-backend=test \
+		"$d/config/mev_module_proposer_key.json" \
+		--from=$(simd --home="$d" keys --keyring-backend=test show --address "$MONIKER") \
+		--chain-id=turbochain-99
+done

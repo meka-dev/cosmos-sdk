@@ -274,6 +274,8 @@ func (app *BaseApp) SetTxEncoder(txEncoder sdk.TxEncoder) {
 	app.txEncoder = txEncoder
 }
 
+func (app *BaseApp) GetTxDecoder() sdk.TxDecoder { return app.txDecoder } // MEKATEK
+
 // SetQueryMultiStore set a alternative MultiStore implementation to support grpc query service.
 //
 // Ref: https://github.com/cosmos/cosmos-sdk/issues/13317

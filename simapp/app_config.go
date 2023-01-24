@@ -1,6 +1,7 @@
 package simapp
 
 import (
+	"path/filepath"
 	"time"
 
 	runtimev1alpha1 "cosmossdk.io/api/cosmos/app/runtime/v1alpha1"
@@ -8,6 +9,7 @@ import (
 	authmodulev1 "cosmossdk.io/api/cosmos/auth/module/v1"
 	authzmodulev1 "cosmossdk.io/api/cosmos/authz/module/v1"
 	bankmodulev1 "cosmossdk.io/api/cosmos/bank/module/v1"
+	buildermodulev1alpha1 "cosmossdk.io/api/cosmos/mev/module/v1alpha1"
 	capabilitymodulev1 "cosmossdk.io/api/cosmos/capability/module/v1"
 	consensusmodulev1 "cosmossdk.io/api/cosmos/consensus/module/v1"
 	crisismodulev1 "cosmossdk.io/api/cosmos/crisis/module/v1"
@@ -26,11 +28,13 @@ import (
 	upgrademodulev1 "cosmossdk.io/api/cosmos/upgrade/module/v1"
 	vestingmodulev1 "cosmossdk.io/api/cosmos/vesting/module/v1"
 	"cosmossdk.io/core/appconfig"
+	"cosmossdk.io/depinject"
 	evidencetypes "cosmossdk.io/x/evidence/types"
 	"cosmossdk.io/x/nft"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	buildertypes "cosmossdk.io/x/mev/types"
 	"cosmossdk.io/x/feegrant"
 
 	"github.com/cosmos/cosmos-sdk/runtime"
@@ -49,6 +53,9 @@ import (
 	paramstypes "github.com/cosmos/cosmos-sdk/x/params/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
+
+  "github.com/spf13/cast"
+
 )
 
 var (
@@ -61,6 +68,7 @@ var (
 		{Account: stakingtypes.NotBondedPoolName, Permissions: []string{authtypes.Burner, stakingtypes.ModuleName}},
 		{Account: govtypes.ModuleName, Permissions: []string{authtypes.Burner}},
 		{Account: nft.ModuleName},
+		{Account: buildertypes.ModuleName},
 	}
 
 	// blocked account addresses
@@ -73,10 +81,13 @@ var (
 		nft.ModuleName,
 		// We allow the following module accounts to receive funds:
 		// govtypes.ModuleName
+		// buildertypes.ModuleName
 	}
+)
 
-	// application configuration (used by depinject)
-	AppConfig = appconfig.Compose(&appv1alpha1.Config{
+// application configuration (used by depinject)
+func AppConfig(appOpts interface{ Get(string) any }) depinject.Config {
+	return appconfig.Compose(&appv1alpha1.Config{
 		Modules: []*appv1alpha1.ModuleConfig{
 			{
 				Name: runtime.ModuleName,
@@ -105,6 +116,7 @@ var (
 						genutiltypes.ModuleName,
 						feegrant.ModuleName,
 						group.ModuleName,
+						buildertypes.ModuleName,
 					},
 					OverrideStoreKeys: []*runtimev1alpha1.StoreKeyConfig{
 						{
@@ -138,6 +150,7 @@ var (
 						upgradetypes.ModuleName,
 						vestingtypes.ModuleName,
 						consensustypes.ModuleName,
+						buildertypes.ModuleName,
 					},
 					// When ExportGenesis is not specified, the export genesis module order
 					// is equal to the init genesis order
@@ -224,6 +237,27 @@ var (
 				Config: appconfig.WrapAny(&nftmodulev1.Module{}),
 			},
 			{
+				Name: buildertypes.ModuleName,
+				Config: appconfig.WrapAny(&buildermodulev1alpha1.Module{
+					// TODO: We couldn't figure out how to have config from app.toml be properly
+					// "provided" to module configs in app_v2.go, so we did dependency injection of
+					// appOpts the old school way here. Please tell us how to do it properly.
+					ProposerKeyFile: func() string {
+						pkf := cast.ToString(appOpts.Get("builder-module.proposer-key-file"))
+						if pkf == "" {
+							pkf = "config/builder_module_proposer_key.json"
+						}
+
+						if filepath.IsAbs(pkf) {
+							return pkf
+						}
+
+						root := cast.ToString(appOpts.Get("home"))
+						return filepath.Join(root, pkf)
+					}(),
+				}),
+			},
+			{
 				Name:   feegrant.ModuleName,
 				Config: appconfig.WrapAny(&feegrantmodulev1.Module{}),
 			},
@@ -241,4 +275,4 @@ var (
 			},
 		},
 	})
-)
+}

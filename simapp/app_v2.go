@@ -3,6 +3,7 @@
 package simapp
 
 import (
+	"context"
 	_ "embed"
 	"io"
 	"os"
@@ -23,6 +24,10 @@ import (
 	feegrantmodule "cosmossdk.io/x/feegrant/module"
 	"cosmossdk.io/x/upgrade"
 	upgradekeeper "cosmossdk.io/x/upgrade/keeper"
+
+	x_builder "cosmossdk.io/x/mev"
+	x_builder_keeper "cosmossdk.io/x/mev/keeper"
+	x_builder_types "cosmossdk.io/x/mev/types"
 
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -103,6 +108,7 @@ var (
 		vesting.AppModuleBasic{},
 		nftmodule.AppModuleBasic{},
 		consensus.AppModuleBasic{},
+		x_builder.AppModuleBasic{},
 	)
 )
 
@@ -140,6 +146,7 @@ type SimApp struct {
 	GroupKeeper           groupkeeper.Keeper
 	NFTKeeper             nftkeeper.Keeper
 	ConsensusParamsKeeper consensuskeeper.Keeper
+	BuilderKeeper         x_builder_keeper.Keeper
 
 	// simulation manager
 	sm *module.SimulationManager
@@ -163,8 +170,9 @@ func NewSimApp(
 	appOpts servertypes.AppOptions,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *SimApp {
+	app := &SimApp{}
+
 	var (
-		app        = &SimApp{}
 		appBuilder *runtime.AppBuilder
 		// Below we could construct and set an application specific mempool and ABCI 1.0 Prepare and Process Proposal
 		// handlers. These defaults are already set in the SDK's BaseApp, this shows an example of how to override
@@ -184,10 +192,28 @@ func NewSimApp(
 
 		// merge the AppConfig and other configuration in one config
 		appConfig = depinject.Configs(
-			AppConfig,
+			AppConfig(appOpts),
 			depinject.Supply(
 				// supply the application options
 				appOpts,
+
+				// MEKATEK BUILDER MODULE DEPENDENCIES
+				x_builder.PrefixFunc(
+					func(ctx context.Context, txs [][]byte) ([][]byte, error) {
+						return nil, nil
+					},
+				),
+
+				x_builder.Preferences{
+					{
+						ID:           "ofac-compliance",
+						ValidateFunc: func(txs [][]byte) error { return nil },
+					},
+				},
+
+				x_builder.AuctionFunc(
+					x_builder.DefaultAuctionFunc,
+				),
 
 				// ADVANCED CONFIGURATION
 
@@ -239,6 +265,7 @@ func NewSimApp(
 		&app.GroupKeeper,
 		&app.NFTKeeper,
 		&app.ConsensusParamsKeeper,
+		&app.BuilderKeeper,
 	); err != nil {
 		panic(err)
 	}
@@ -248,6 +275,17 @@ func NewSimApp(
 	if err := app.App.BaseApp.SetStreamingService(appOpts, app.appCodec, app.kvStoreKeys()); err != nil {
 		logger.Error("failed to load state streaming", "err", err)
 		os.Exit(1)
+	}
+
+	{
+		// MEKATEK BUILDER PREPAREPROPOSAL AND PROCESSPROPOSAL REGISTRATION
+		name := x_builder_types.ModuleName
+		mod := app.ModuleManager.Modules[name].(x_builder.AppModule)
+		mod.SetPrepareProposalSimulateFunc(app.SimulatePrepareProposal)
+		mod.SetProcessProposalSimulateFunc(app.SimulateProcessProposal)
+		app.SetPrepareProposal(mod.PrepareProposal)
+		app.SetProcessProposal(mod.ProcessProposal)
+		mod.SetTxDecoder(app.GetTxDecoder())
 	}
 
 	/****  Module Options ****/

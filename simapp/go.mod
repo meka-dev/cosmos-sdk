@@ -9,7 +9,7 @@ require (
 	cosmossdk.io/depinject v1.0.0-alpha.3
 	cosmossdk.io/log v0.0.0
 	cosmossdk.io/math v1.0.0-beta.6
-	cosmossdk.io/store v0.0.0-20230206092147-e03195e4b8a7
+	cosmossdk.io/store v0.1.0
 	cosmossdk.io/tools/confix v0.0.0-20230120150717-4f6f6c00021f
 	cosmossdk.io/tools/rosetta v0.2.0
 	cosmossdk.io/x/evidence v0.1.0
@@ -28,6 +28,8 @@ require (
 	github.com/stretchr/testify v1.8.1
 	google.golang.org/protobuf v1.28.2-0.20230208135220-49eaa78c6c9c
 )
+
+require cosmossdk.io/x/mev v0.0.0-00010101000000-000000000000
 
 require (
 	cloud.google.com/go v0.107.0 // indirect
@@ -190,20 +192,24 @@ require (
 // Here are the short-lived replace from the SimApp
 // Replace here are pending PRs, or version to be tagged
 replace (
-	// TODO tag all extracted modules after SDK refactor
+	cosmossdk.io/client/v2 => ../client/v2
 	cosmossdk.io/log => ../log
 	cosmossdk.io/tools/confix => ../tools/confix
 	cosmossdk.io/tools/rosetta => ../tools/rosetta
 	cosmossdk.io/x/evidence => ../x/evidence
 	cosmossdk.io/x/feegrant => ../x/feegrant
+	cosmossdk.io/x/mev => ../x/mev
 	cosmossdk.io/x/nft => ../x/nft
 	cosmossdk.io/x/upgrade => ../x/upgrade
+
 	// TODO update/remove after v0.37.x tag of CometBFT
 	github.com/cometbft/cometbft => github.com/cometbft/cometbft v0.0.0-20230203130311-387422ac220d
 )
 
 // Below are the long-lived replace of the SimApp
 replace (
+	cosmossdk.io/api => ../api
+	cosmossdk.io/store => ../store
 	// use cosmos fork of keyring
 	github.com/99designs/keyring => github.com/cosmos/keyring v1.2.0
 	// Simapp always use the latest version of the cosmos-sdk

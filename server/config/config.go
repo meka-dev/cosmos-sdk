@@ -171,6 +171,11 @@ type MempoolConfig struct {
 	MaxTxs int
 }
 
+// BuilderModuleConfig defines the configurations for the SDK's builder module.
+type BuilderModuleConfig struct {
+	ProposerKeyFile string `mapstructure:"proposer-key-file"`
+}
+
 type (
 	// StoreConfig defines application configuration for state streaming and other
 	// storage related operations.
@@ -207,14 +212,15 @@ type Config struct {
 	BaseConfig `mapstructure:",squash"`
 
 	// Telemetry defines the application telemetry configuration
-	Telemetry telemetry.Config `mapstructure:"telemetry"`
-	API       APIConfig        `mapstructure:"api"`
-	GRPC      GRPCConfig       `mapstructure:"grpc"`
-	GRPCWeb   GRPCWebConfig    `mapstructure:"grpc-web"`
-	StateSync StateSyncConfig  `mapstructure:"state-sync"`
-	Store     StoreConfig      `mapstructure:"store"`
-	Streamers StreamersConfig  `mapstructure:"streamers"`
-	Mempool   MempoolConfig    `mapstructure:"mempool"`
+	Telemetry     telemetry.Config    `mapstructure:"telemetry"`
+	API           APIConfig           `mapstructure:"api"`
+	GRPC          GRPCConfig          `mapstructure:"grpc"`
+	GRPCWeb       GRPCWebConfig       `mapstructure:"grpc-web"`
+	StateSync     StateSyncConfig     `mapstructure:"state-sync"`
+	Store         StoreConfig         `mapstructure:"store"`
+	Streamers     StreamersConfig     `mapstructure:"streamers"`
+	Mempool       MempoolConfig       `mapstructure:"mempool"`
+	BuilderModule BuilderModuleConfig `mapstructure:"builder-module"`
 }
 
 // SetMinGasPrices sets the validator's minimum gas prices.

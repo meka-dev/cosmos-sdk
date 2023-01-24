@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
+SIMD_DIR=$(realpath "${SCRIPT_DIR}/../../../simapp/simd")
+NUM_NODES=3
+
+cd "${SIMD_DIR}"
+go install
+
+# Catch SIGINT and SIGTERM signals and call terminate_children
+trap 'echo ; wait' SIGINT SIGTERM
+
+# Start multiple node processes
+for i in $(seq 1 "$NUM_NODES"); do
+    NODE_DIR="${HOME}/.simapp${i}"
+	  LINE_PRE="node${i}"
+    simd --home "$NODE_DIR" --log_level=info --log_format=json start  |
+      grep --line-buffered -E '^{' |
+      jq -r -c --unbuffered '. | del(.level, .ts)' |
+		  sed -l -e "s/^/${LINE_PRE} /g" 2>&1 &
+done
+
+# Wait for all child processes to finish
+wait
+
+echo "All child nodes have finished."

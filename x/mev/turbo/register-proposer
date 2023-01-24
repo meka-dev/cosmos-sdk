@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+if [[ -z "$1" ]]; then
+  echo "Error: Missing required node number argument."
+  exit 1
+fi
+
+NODE_NUM="$1"
+NODE_DIR="${HOME}/.simapp${NODE_NUM}"
+MONIKER="node${NODE_NUM}-moniker"
+
+simd --home="$NODE_DIR" tx builder register-proposer \
+	--yes \
+	--keyring-backend=test \
+	"$NODE_DIR/config/mev_module_proposer_key.json" \
+	--from="$(simd --home="$NODE_DIR" keys --keyring-backend=test show --address "$MONIKER")" \
+	--chain-id=turbochain-99

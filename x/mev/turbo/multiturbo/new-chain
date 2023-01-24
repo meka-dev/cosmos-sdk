@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+SIMAPP_HOME=$(realpath ~/.simapp)
+
+rm -rf ${SIMAPP_HOME}
+mkdir -p ${SIMAPP_HOME}/config/gentxs # ???
+#mkdir -p ${SIMAPP_HOME}/config ${SIMAPP_HOME}/turbovalidator-{1,2,3}/config
+
+# create a new chain and an initial validator
+simd init turboval-2-moniker --chain-id=turbochain-99
+
+for i in 0
+do
+	simd keys --keyring-backend=test add turboval-${i}-consensus-key
+	simd genesis add-genesis-account --keyring-backend=test turboval-${i}-consensus-key 10000000000000000000000000stake
+	simd genesis gentx \
+		turboval-${i}-consensus-key \
+		1000000000stake \
+		--moniker=turboval-${i}-moniker \
+		--from=$(simd keys --keyring-backend=test show -a turboval-${i}-consensus-key) \
+		--chain-id=turbochain-99 \
+		--output-document=${SIMAPP_HOME}/config/gentxs/turboval-0.gentx.json \
+		--keyring-backend=test
+done
+
+# create 3 additional validators (in the same keyring)
+for i in 1 2 3
+do
+	simd keys --keyring-backend=test add turboval-${i}-consensus-key
+	simd genesis add-genesis-account --keyring-backend=test turboval-${i}-consensus-key 1000000000000000000000000${i}stake
+	simd genesis gentx \
+		turboval-${i}-consensus-key \
+		1000000000stake \
+		--moniker=turboval-${i}-moniker \
+		--from=$(simd keys --keyring-backend=test show -a turboval-${i}-consensus-key) \
+		--chain-id=turbochain-99 \
+		--output-document=${SIMAPP_HOME}/config/gentxs/turboval-${i}.gentx.json \
+		--keyring-backend=test
+done
+
+# create the genesis file
+simd genesis collect-gentxs --gentx-dir=${SIMAPP_HOME}/config/gentxs 2>&1 | sed 's/"app_message"/"app_state"/' >/tmp/genesis.json
+mv /tmp/genesis.json ${SIMAPP_HOME}/config/genesis.json
+
+# create specific home dirs for each additional validator
+# change their configs to avoid port conflicts
+for i in 1 2 3
+do
+	mkdir -p ${SIMAPP_HOME}/turboval-${i}
+	cp -r ${SIMAPP_HOME}/{config,data,keyring-test} ${SIMAPP_HOME}/turboval-${i}
+	dasel -f ${SIMAPP_HOME}/turboval-${i}/config/config.toml put -t string -v "tcp://127.0.0.1:300${i}1" 'proxy_app'       # was 26658
+	dasel -f ${SIMAPP_HOME}/turboval-${i}/config/config.toml put -t string -v "tcp://127.0.0.1:300${i}2" 'rpc.laddr'       # was 26657
+	dasel -f ${SIMAPP_HOME}/turboval-${i}/config/config.toml put -t string -v "localhost:300${i}3"       'rpc.pprof_laddr' # was 6060
+	dasel -f ${SIMAPP_HOME}/turboval-${i}/config/config.toml put -t string -v "tcp://localhost:300${i}4" 'p2p.laddr'       # was 26656
+	dasel -f ${SIMAPP_HOME}/turboval-${i}/config/app.toml    put -t string -v "tcp://localhost:300${i}5" 'api.address'     # was 1317
+	dasel -f ${SIMAPP_HOME}/turboval-${i}/config/app.toml    put -t string -v "localhost:300${i}6"       'grpc.address'    # was 9090, can't have tcp://
+	dasel -f ${SIMAPP_HOME}/turboval-${i}/config/client.toml put -t string -v "tcp://localhost:300${i}7" 'node'            # p2p.laddr (but doesn't work)
+done
+
+# make a persistent_peers with all of the validator p2p.laddrs
+PEERS=$(\
+	find ${SIMAPP_HOME} -name config.toml \
+	| xargs -n1 dasel p2p.laddr --file \
+	| while read addr ; do echo $addr | rev | cut -d: -f1 | rev | xargs -n1 printf 'localhost:%d\n' ; done \
+	| tr '\n' ',' | sort | uniq
+)
+
+echo "PEERS=$PEERS"
+
+# set that persistent_peers in all of the validators
+for f in $(find ${SIMAPP_HOME} -name client.toml)
+do
+	dasel -f $f put -t string -v $PEERS p2p.persistent_peers
+	echo $f
+	rg persistent_peers $f
+done

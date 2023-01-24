@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+NODE_DIR="${HOME}/.simapp1"
+simd tx --home="$NODE_DIR" builder register-builder --yes --keyring-backend=test \
+  --from="$(simd --home="$NODE_DIR" keys --keyring-backend=test show -a builder-key)" \
+  --builder-api-url="http://localhost:9099/v0" \
+  --builder-api-version="0" \
+  --chain-id="turbochain-99" \
+  --security-contact="foo@bar.com" \
+  --moniker=TurboBuilder2000
+
+simd query --home="$NODE_DIR" builder --keyring-backend=test export-json-key \
+  "$(simd --home="$NODE_DIR" keys --keyring-backend=test show -a builder-key)" \
+  "$HOME/.simapp/config/mev_key.json"

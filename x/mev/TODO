@@ -1,0 +1,27 @@
+# Changelog
+
+- Auctions are keyed by proposer addr + chain ID + height
+
+- Builder API types now include proposer address
+
+- Module query API changed
+  - No more ProposerForHeight
+  - Proposer response type includes optional staking validator
+
+- Builders are expected to validate requests differently
+  - Check Proposer.Validator.IsBonded, IsJailed, etc.
+
+- MaxBytes, MaxGas are enforced -- need to document how
+
+
+# TODO
+
+- Evidence
+  - We do proposer infractions
+  - We still need to do builder infractions
+    - e.g. when builder's winning segment commitment tx is invalid
+
+- Allow builders to be one-to-many with versioned API URLs
+
+- Builder registration fee?
+  - Do we need to charge for builder registration?

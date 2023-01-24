@@ -26,6 +26,20 @@ func (app *BaseApp) Simulate(txBytes []byte) (sdk.GasInfo, *sdk.Result, error) {
 	return gasInfo, result, err
 }
 
+// SimulatePrepareProposal executes a tx in the runTxPrepareProposal. It's used
+// by implementations of sdk.PrepareProposalHandler to validate external transactions.
+func (app *BaseApp) SimulatePrepareProposal(txBytes []byte) (sdk.GasInfo, *sdk.Result, error) {
+	gasInfo, result, _, _, err := app.runTx(runTxPrepareProposal, txBytes)
+	return gasInfo, result, err
+}
+
+// SimulateProcessProposal executes a tx in the runTxProcessProposal. It's used
+// by implementations of sdk.ProcessProposalHandler to validate external transactions.
+func (app *BaseApp) SimulateProcessProposal(txBytes []byte) (sdk.GasInfo, *sdk.Result, error) {
+	gasInfo, result, _, _, err := app.runTx(runTxProcessProposal, txBytes)
+	return gasInfo, result, err
+}
+
 func (app *BaseApp) SimDeliver(txEncoder sdk.TxEncoder, tx sdk.Tx) (sdk.GasInfo, *sdk.Result, error) {
 	// See comment for Check().
 	bz, err := txEncoder(tx)

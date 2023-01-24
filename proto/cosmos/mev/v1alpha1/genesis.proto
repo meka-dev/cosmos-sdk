@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package cosmos.mev.v1alpha1;
+
+import "gogoproto/gogo.proto";
+import "cosmos/mev/v1alpha1/params.proto";
+import "cosmos/mev/v1alpha1/builder.proto";
+import "cosmos/mev/v1alpha1/proposer.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/mev/types";
+
+// GenesisState defines the builder module's genesis state.
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  repeated Builder  builders  = 2 [(gogoproto.nullable) = false];
+  repeated Proposer proposers = 3 [(gogoproto.nullable) = false];
+}

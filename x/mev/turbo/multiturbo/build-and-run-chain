@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+ulimit -n 24000
+
+SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
+SIMD_DIR=$(realpath ${SCRIPT_DIR}/../../../simapp/simd)
+cd ${SIMD_DIR}
+go install
+
+trap 'echo ; wait' SIGINT
+
+for f in $(find ~/.simapp -name config.toml)
+do
+	HOME_DIR=$(dirname $(dirname $f))
+	VAL_NAME=$(basename $HOME_DIR | sed -e 's/\.simapp/turboval-0/')
+	PORT_NUM=$(dasel -f $f p2p.laddr | rev | cut -d: -f1 | rev)
+	LINE_PRE=$(printf '[%10s] ' ${VAL_NAME})
+	simd \
+		--home=${HOME_DIR} start --log_level=debug --log_format=json $* \
+		| grep --line-buffered -E '^{' \
+		| jq -r -c --unbuffered '. | del(.level, .ts)' \
+		| sed -l -e "s/^/${LINE_PRE} /g" \
+		&
+done
+
+#for id in 0 1 2 3 4 5
+#do
+#	# simd start --log_level=debug --log_format=json | grep --line-buffered -E '^{' | jq -r -c --unbuffered '. | select(.module == "x/mev") | del(.level, .ts)'
+#	simd --home=${HOME}/.simapp/turbo-${id} start \
+#		--log_level=debug --log_format=json \
+#			| grep --line-buffered -E '^{' \
+#			| jq -r -c --unbuffered '. | del(.level, .ts)' \
+#			| sed -l -e "s/^/[$id] /g" \
+#			&
+#done
+
+wait

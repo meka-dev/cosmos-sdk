@@ -1,0 +1,31 @@
+syntax = "proto3";
+package cosmos.mev.v1alpha1;
+
+import "google/protobuf/any.proto";
+import "gogoproto/gogo.proto";
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/mev/types";
+
+// Proposer represents a proposing validator identity used by
+// the builder module.
+message Proposer {
+  option (gogoproto.equal)           = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // address is the address of the proposer's builder module pub key
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // pubkey is the pub key of the proposer used by the builder module to sign
+  // requests and commitments.
+  google.protobuf.Any pubkey = 2 [(cosmos_proto.accepts_interface) = "cosmos.crypto.PubKey"];
+
+  // operator_address is the address of the proposer's operator key (i.e. staking key)
+  string operator_address = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // operator_pubkey is the operator pub key of the proposer that is used to sign registration and
+  // establish a chain of trust
+  google.protobuf.Any operator_pubkey = 4 [(cosmos_proto.accepts_interface) = "cosmos.crypto.PubKey"];
+}

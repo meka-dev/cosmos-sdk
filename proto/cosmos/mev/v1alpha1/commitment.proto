@@ -1,0 +1,56 @@
+syntax = "proto3";
+package cosmos.mev.v1alpha1;
+
+import "google/protobuf/any.proto";
+import "gogoproto/gogo.proto";
+
+import "cosmos/base/v1beta1/coin.proto";
+import "cosmos_proto/cosmos.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/mev/types";
+
+// SegmentCommitment represents a mutual commitment between a proposer and a builder,
+// in which a proposer commits to include a winning builder's segment as a result of
+// an spot auction of block space in the builder module, and a builder commits to
+// to produce that segment according to the proposer's preferences and to pay the
+// promised amount.
+message SegmentCommitment {
+  option (gogoproto.equal)           = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // proposer_address is the address of the proposer's pub key.
+  string proposer_address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // builder_address is the address of the builder's pub key.
+  string builder_address = 2 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // chain_id is the id of the chain.
+  string chain_id = 3;
+  // height of the block the segment is for.
+  int64 height = 4;
+  // preference_ids the proposer asked the builder to honor.
+  repeated string preference_ids = 5;
+  // prefix_offset of the prefix section of the block being built.
+  int32 prefix_offset = 6;
+  // prefix_length of the prefix section of the block being built.
+  int32 prefix_length = 7;
+  // prefix_hash of the prefix section transactions.
+  bytes prefix_hash = 8;
+  // segment_offset of the segment section of the block being built.
+  int32 segment_offset = 9;
+  // segment_length of the segment section of the block being built.
+  int32 segment_length = 10;
+  // segment_bytes count of the segment section of the block being built.
+  int32 segment_bytes = 11;
+  // segment_gas used of the segment section of the block being built.
+  int32 segment_gas = 12;
+  // segment_hash of the segment section transactions.
+  bytes segment_hash = 13;
+  // payment_promise the builder offers for segment inclusion.
+  string payment_promise = 14;
+
+  // proposer_signature of all the above fields as defined
+  // by the builder module.
+  bytes proposer_signature = 15;
+  // builder_signature of all the above fields as defined
+  // by the builder module.
+  bytes builder_signature = 16;
+}

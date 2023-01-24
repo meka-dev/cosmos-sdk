@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
+BUILDER_DIR=$(realpath ${SCRIPT_DIR}/turbobuilder)
+cd ${BUILDER_DIR}
+go install .
+turbobuilder \
+	--builder-key-file=${HOME}/.simapp/config/mev_key.json \
+	--node-uri=http://localhost:26667

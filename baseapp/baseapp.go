@@ -928,11 +928,13 @@ func (app *BaseApp) DefaultProcessProposal() sdk.ProcessProposalHandler {
 		for _, txBytes := range req.Txs {
 			_, err := app.txDecoder(txBytes)
 			if err != nil {
+				ctx.Logger().Error("process proposal rejection", "during", "decode tx", "err", err)
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 
 			_, _, _, _, err = app.runTx(runTxProcessProposal, txBytes)
 			if err != nil {
+				ctx.Logger().Error("process proposal rejection", "during", "run tx", "err", err)
 				return abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 			}
 		}

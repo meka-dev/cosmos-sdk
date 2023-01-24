@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)
+SIMD_DIR=$(realpath "${SCRIPT_DIR}/../../../simapp/simd")
+
+cd "${SIMD_DIR}"
+go install
+
+trap 'echo ; wait' SIGINT SIGTERM
+
+for d in ${HOME}/.simapp?
+do
+    PREFIX=$(basename $d)
+    simd start --home=$d --log_level=debug --log_format=json |
+        grep --line-buffered -E '^{' |
+        jq -r -c --unbuffered '. | select(.module == "x/mev") | del(.level, .ts)' |
+        sed -l -e "s/^/${PREFIX} /g" 2>&1 &
+done
+
+wait

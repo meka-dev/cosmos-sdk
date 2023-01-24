@@ -1,0 +1,24 @@
+syntax = "proto3";
+package cosmos.mev.v1alpha1;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/mev/types";
+
+// Params defines the parameters for the module.
+message Params {
+  option (gogoproto.goproto_stringer) = false;
+
+  // Max age of evidence, in blocks.
+  //
+  // The basic formula for calculating this is: MaxAgeDuration / {average block
+  // time}.
+  int64 max_evidence_age_num_blocks = 1;
+
+  // Max builders per auction. If there are more builders than this setting,
+  // a random selection will be done, with a PRNG seeded with the block height.
+  int64 max_builders_per_auction = 2;
+
+  // List of allowed builder addresses. Leave empty to allow all builders.
+  repeated string allowed_builder_addresses = 3;
+}

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+rm -rf ~/.simapp
+simd init ${USER}-moniker --chain-id=turbochain-99
+simd keys --keyring-backend=test add ${USER}-consensus-key
+simd genesis add-genesis-account --keyring-backend=test ${USER}-consensus-key 10000000000000000000000000stake
+simd genesis gentx --keyring-backend=test ${USER}-consensus-key 1000000000stake --chain-id=turbochain-99
+simd genesis collect-gentxs 2>&1 | sed 's/"app_message"/"app_state"/' >/tmp/genesis.json
+mv /tmp/genesis.json ~/.simapp/config/genesis.json
+#simd tendermint unsafe-reset-all

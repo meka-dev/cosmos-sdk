@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+set -e
+set -u
+set -o pipefail
+set -x
+
+# Variables
+CHAIN_ID="turbochain-99"
+NUM_NODES=3
+BASE_PORT=26656
+BASE_RPC_PORT=26657
+
+for i in $(seq 1 "$NUM_NODES"); do
+    rm -rf "${HOME}/.simapp${i}"
+done
+
+declare -A MNEMONICS
+for i in $(seq 1 "$NUM_NODES"); do
+    MNEMONICS["node${i}-moniker"]=$(simd keys mnemonic)
+done
+
+PEERS=""
+for i in $(seq 1 "$NUM_NODES"); do
+    NODE_DIR="${HOME}/.simapp${i}"
+    MONIKER="node${i}-moniker"
+    MNEMONIC="${MNEMONICS[$MONIKER]}"
+
+    echo "$MNEMONIC" | simd keys --home="$NODE_DIR" add "$MONIKER" --recover --keyring-backend=test
+    echo "$MNEMONIC" | simd init -o --chain-id="$CHAIN_ID" --home="$NODE_DIR" --recover "$MONIKER"
+    simd genesis --home="$NODE_DIR" add-genesis-account --keyring-backend=test "$MONIKER" 10000000000000000000000000stake
+    simd genesis --home="$NODE_DIR" gentx --keyring-backend=test "$MONIKER" 1000000000stake --chain-id "$CHAIN_ID"
+
+    # Collect node ID and append to the list of peers
+    NODE_ID=$(simd --home "$NODE_DIR" comet show-node-id)
+    P2P_PORT=$((BASE_PORT + (10 * i)))
+    PEERS="${PEERS}${NODE_ID}@127.0.0.1:$P2P_PORT,"
+done
+
+# Add a genesis builder account and key, store such key in ~/.simapp keyring
+MNEMONICS["builder-key"]=$(simd keys mnemonic)
+echo "${MNEMONICS["builder-key"]}" | simd keys --home="${HOME}/.simapp1" add "builder-key" --recover --keyring-backend=test
+simd genesis --home="${HOME}/.simapp1" add-genesis-account --keyring-backend=test "builder-key" 10000000000000000000000000stake
+
+# Add each other peer's consensus key, genesis account and gen tx in the first validator
+for i in $(seq 2 "$NUM_NODES"); do
+    NODE_DIR="${HOME}/.simapp1"
+    MONIKER="node${i}-moniker"
+    MNEMONIC="${MNEMONICS[$MONIKER]}"
+    echo "${MNEMONIC}" | simd keys --home="$NODE_DIR" add "$MONIKER" --recover --keyring-backend=test
+    simd genesis --home="$NODE_DIR" add-genesis-account --keyring-backend=test "$MONIKER" 10000000000000000000000000stake
+    cp "${HOME}/.simapp${i}"/config/gentx/* "$NODE_DIR/config/gentx"
+done
+
+# Copy the genesis.json from the first node to all other nodes
+simd --home "${HOME}/.simapp1/" genesis collect-gentxs 2>&1 |
+    sed 's/"app_message"/"app_state"/' >/tmp/genesis.json
+
+dasel put -f "/tmp/genesis.json" -t string -s ".genesis_time" -v "$(date -u "+%Y-%m-%dT%H:%M:%SZ")"
+mv /tmp/genesis.json "${HOME}/.simapp1/config/genesis.json"
+
+for i in $(seq 2 "$NUM_NODES"); do
+    NODE_DIR="${HOME}/.simapp${i}"
+    cp "${HOME}/.simapp1/config/genesis.json" "${NODE_DIR}/config/"
+done
+
+# Update the persistent_peers configuration and ports in the config.toml and app.toml files for each node
+for i in $(seq 1 "$NUM_NODES"); do
+    NODE_DIR="${HOME}/.simapp${i}"
+    P2P_PORT=$((BASE_PORT + (10 * i)))
+    RPC_PORT=$((BASE_RPC_PORT + (10 * i)))
+    GRPC_PORT=$((BASE_RPC_PORT + (10 * i) + 2))
+    API_PORT=$((BASE_RPC_PORT + (10 * i) + 4))
+    PROF_LADDR_PORT=$((BASE_RPC_PORT + (10 * i) + 6))
+    PROXY_APP_PORT=$((BASE_RPC_PORT + (10 * i) + 8))
+
+    dasel put -f "${NODE_DIR}/config/config.toml" -t string -s .p2p.persistent_peers    -v  "${PEERS%,}"
+    dasel put -f "${NODE_DIR}/config/config.toml" -t string -s .proxy_app               -v "tcp://127.0.0.1:${PROXY_APP_PORT}"
+    dasel put -f "${NODE_DIR}/config/config.toml" -t string -s .rpc.laddr               -v "tcp://127.0.0.1:${RPC_PORT}"
+    dasel put -f "${NODE_DIR}/config/config.toml" -t string -s .rpc.pprof_laddr         -v "127.0.0.1:${PROF_LADDR_PORT}"
+    dasel put -f "${NODE_DIR}/config/config.toml" -t string -s .p2p.laddr               -v "tcp://127.0.0.1:${P2P_PORT}"
+    dasel put -f "${NODE_DIR}/config/config.toml" -t bool   -s .p2p.allow_duplicate_ip  -v "true"
+    dasel put -f "${NODE_DIR}/config/config.toml" -t bool   -s .p2p.addr_book_strict    -v "false"
+    dasel put -f "${NODE_DIR}/config/app.toml"    -t string -s .api.address             -v "tcp://127.0.0.1:${API_PORT}"
+    dasel put -f "${NODE_DIR}/config/app.toml"    -t string -s .grpc.address            -v "127.0.0.1:${GRPC_PORT}"
+    dasel put -f "${NODE_DIR}/config/app.toml"    -t string -s .statesync.rpc_servers   -v "127.0.0.1:${RPC_PORT}"
+    dasel put -f "${NODE_DIR}/config/client.toml" -t string -s .node                    -v "tcp://localhost:${RPC_PORT}"
+done
+
+# Update default ~/.simapp/config/client.toml to point to first validator
+RPC_PORT=$((BASE_RPC_PORT + (10 * 1)))
+dasel put -f "${HOME}/.simapp/config/client.toml" -t string -s .node -v "tcp://localhost:${RPC_PORT}"

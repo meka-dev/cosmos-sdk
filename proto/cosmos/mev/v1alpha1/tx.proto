@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package cosmos.mev.v1alpha1;
+
+import "google/protobuf/any.proto";
+import "gogoproto/gogo.proto";
+
+import "cosmos_proto/cosmos.proto";
+import "cosmos/msg/v1/msg.proto";
+import "cosmos/mev/v1alpha1/commitment.proto";
+import "cosmos/mev/v1alpha1/params.proto";
+
+option go_package = "github.com/cosmos/cosmos-sdk/x/mev/types";
+
+// Msg defines the Msg service.
+service Msg {
+  // RegisterBuilder defines a method for registering an off-chain builder.
+  rpc RegisterBuilder(MsgRegisterBuilder) returns (MsgRegisterBuilderResponse);
+
+  // EditBuilder defines a method for editing an off-chain builder.
+  rpc EditBuilder(MsgEditBuilder) returns (MsgEditBuilderResponse);
+
+  // RegisterProposer defines a method for registering a proposer for off-chain building.
+  rpc RegisterProposer(MsgRegisterProposer) returns (MsgRegisterProposerResponse);
+
+  // CommitSegment defines a method for committing a builder segment which also
+  // transfers their promised payment to the builder module address.
+  rpc CommitSegment(MsgCommitSegment) returns (MsgCommitSegmentResponse);
+
+  // ReportProposer defines a method for a builder to submit evidence
+  // that a proposer didn't honour its proposer commitment.
+  rpc ReportProposer(MsgReportProposer) returns (MsgReportProposerResponse);
+
+  // UpdateParams defines a governance operation for updating the x/mev module
+  // parameters. The authority defaults to the x/gov module account.
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+// MsgRegisterBuilder defines a SDK message for registering an off-chain builder.
+message MsgRegisterBuilder {
+  option (cosmos.msg.v1.signer)      = "address";
+  option (gogoproto.equal)           = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // address is the address of the builder's pub key
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // pubkey is the pub key of the builder
+  google.protobuf.Any pubkey = 2 [(cosmos_proto.accepts_interface) = "cosmos.crypto.PubKey"];
+
+  // moniker is a human-readable name for the validator.
+  string moniker = 3;
+
+  // builder_api_version is the version of the builder API this builder operates
+  string builder_api_version = 4;
+
+  // builder_api_url is the URL of the builder API this builder operates
+  string builder_api_url = 5;
+
+  // security_contact defines an optional email for security contact.
+  string security_contact = 6;
+}
+
+// MsgRegisterBuilderResponse defines the response to MsgRegisterBuilder.
+message MsgRegisterBuilderResponse {}
+
+// MsgEditBuilder defines a SDK message for editing an off-chain builder.
+message MsgEditBuilder {
+  option (cosmos.msg.v1.signer)      = "address";
+  option (gogoproto.equal)           = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // address is the address of the builder's pub key
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // moniker is a human-readable name for the validator.
+  string moniker = 2;
+
+  // builder_api_version is the version of the builder API this builder operates
+  string builder_api_version = 3;
+
+  // builder_api_url is the URL of the builder API this builder operates
+  string builder_api_url = 4;
+
+  // security_contact defines an optional email for security contact.
+  string security_contact = 5;
+}
+
+// MsgEditBuilderResponse defines the response to MsgEditBuilder.
+message MsgEditBuilderResponse {}
+
+// MsgRegisterProposer defines the SDK message for registering a proposer
+// in off-chain building.
+message MsgRegisterProposer {
+  option (cosmos.msg.v1.signer)      = "operator_address";
+  option (gogoproto.equal)           = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // address is the address of the proposer's builder module pub key
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // pubkey is the pub key of the proposer used by the builder module to sign
+  // requests and commitments.
+  google.protobuf.Any pubkey = 2 [(cosmos_proto.accepts_interface) = "cosmos.crypto.PubKey"];
+
+  // operator_address is the address of the proposer's operator key (i.e. staking key)
+  string operator_address = 3 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // operator_pubkey is the operator pub key of the proposer that is used to sign registration and
+  // establish a chain of trust
+  google.protobuf.Any operator_pubkey = 4 [(cosmos_proto.accepts_interface) = "cosmos.crypto.PubKey"];
+}
+
+// MsgRegisterProposerResponse defines the response to MsgRegisterProposer
+message MsgRegisterProposerResponse {}
+
+// MsgCommitSegment defines the SDK message for off-chain segment commitment
+// which is verified by validators after a proposal.
+message MsgCommitSegment {
+  option (cosmos.msg.v1.signer)      = "builder_address";
+  option (gogoproto.equal)           = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // builder_address is the address of the builder's pub key.
+  string builder_address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // commitment is the mutually signed segment commitment
+  cosmos.mev.v1alpha1.SegmentCommitment commitment = 2 [(gogoproto.nullable) = false];
+}
+
+message MsgCommitSegmentResponse {}
+
+// MsgReportProposer defines the SDK message for a builder to report
+// evidence a proposer didn't honour its commitment.
+message MsgReportProposer {
+  option (cosmos.msg.v1.signer)      = "builder_address";
+  option (gogoproto.equal)           = false;
+  option (gogoproto.goproto_getters) = false;
+
+  // builder_address is the address of the builder's pub key.
+  string builder_address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // commitment is the mutually signed segment commitment
+  cosmos.mev.v1alpha1.SegmentCommitment commitment = 2 [(gogoproto.nullable) = false];
+}
+
+message MsgReportProposerResponse {}
+
+// MsgUpdateParams is the Msg/UpdateParams request type.
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  // authority is the address that controls the module (defaults to x/gov unless overwritten).
+  string authority = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+
+  // params defines the x/mev parameters to update.
+  //
+  // NOTE: All parameters must be supplied.
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+// MsgUpdateParamsResponse defines the response structure for executing a
+// MsgUpdateParams message.
+message MsgUpdateParamsResponse {}
